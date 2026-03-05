@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<title>Zombie Shooter City</title>
+<style>
+body{margin:0;overflow:hidden;font-family:Arial;background:#111;color:white;}
+canvas{display:block;background:#222;}
+#ui{position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.7);padding:10px;border-radius:10px;z-index:100;display:none;}
+button{margin:5px;cursor:pointer;padding:5px 10px;}
+#langSelect{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#333;padding:20px;border-radius:10px;}
+</style>
+</head>
+<body>
+<div id="langSelect">
+<h3>Choose Language / Оберіть мову</h3>
+<button onclick="startGame('uk')">Українська</button>
+<button onclick="startGame('en')">English</button>
+</div>
+
+<div id="ui">
+<div id="stats"></div>
+<button id="shopBtn"></button>
+<div id="shop" style="display:none;"></div>
+<button id="pauseBtn"></button>
+<button id="reloadBtn"></button>
+</div>
+
+<canvas id="game"></canvas>
+<script>
+// =================== Глобальні змінні ===================
+let lang = "uk";
+let texts = {
+ uk:{shop:"🛒 Магазин", pause:"⏸ Пауза", reload:"🔄 Перезарядка", gameover:"Гру закінчено! Очки: ", coins:"🪙 Монети", score:"🎯 Очки", hp:"❤️ HP", wave:"🌊 Хвиля"},
+ en:{shop:"🛒 Shop", pause:"⏸ Pause", reload:"🔄 Reload", gameover:"Game Over! Score: ", coins:"🪙 Coins", score:"🎯 Score", hp:"❤️ HP", wave:"🌊 Wave"}
+};
+
+let canvas=document.getElementById("game");
+let ctx=canvas.getContext("2d");
+canvas.width=window.innerWidth;
+canvas.height=window.innerHeight;
+
+// =================== Глобальні змінні гри ===================
+let player, weapons, ownedWeapons, currentWeapon, ammo, reloading, lastShot;
+let coins, highScore, score, wave, waveActive, gameOver, paused;
+let keys, walls, particles, zombies, bullets;
+let spawnInterval;
+
+// =================== Старт гри після вибору мови ===================
+function startGame(selectedLang){
+ lang = selectedLang;
+ document.getElementById("langSelect").style.display="none";
+ document.getElementById("ui").style.display="block";
+ document.getElementById("shopBtn").innerText=texts[lang].shop;
+ document.getElementById("pauseBtn").innerText=texts[lang].pause;
+ document.getElementById("reloadBtn").innerText=texts[lang].reload;
+ document.getElementById("shopBtn").onclick=toggleShop;
+ document.getElementById("pauseBtn").onclick=togglePause;
+ document.getElementById("reloadBtn").onclick=reload;
+ initGame();
+ loop();
+}
+
+// =================== Ініціалізація гри ===================
+function initGame(){
+player={x:canvas.width/2,y:canvas.height/2,size:20,speed:4,hp:100};
+weapons={
+ pistol:{name:"Pistol",damage:20,speed:10,fireRate:400,mag:12,reload:1500,price:0},
+ rifle:{name:"Rifle",damage:10,speed:14,fireRate:120,mag:30,reload:2000,price:200},
+ shotgun:{name:"Shotgun",damage:40,speed:8,fireRate:800,mag:5,reload:2000,price:400}
+};
+ownedWeapons=JSON.parse(localStorage.getItem("ownedWeapons"))||["pistol"];
+currentWeapon=localStorage.getItem("currentWeapon")||"pistol";
+ammo=weapons[currentWeapon].mag;
+reloading=false; lastShot=0;
+coins=parseInt(localStorage.getItem("coins"))||0;
+highScore=parseInt(localStorage.getItem("highScore"))||0;
+score=0; wave=1; waveActive=false; gameOver=false; paused=false;
+keys={};
+document.addEventListener("keydown",e=>{keys[e.key]=true;if(e.key==="r") reload(); if(e.key==="p") togglePause();});
+document.addEventListener("keyup",e=>{keys[e.key]=false;});
+bullets=[]; particles=[]; zombies=[]; walls=[];
+generateWalls();
+spawnWave(5);
+}
+
+// =================== Будівлі ===================
+function generateWalls(){
+walls=[];
+const numBuildings=5;
+for(let i=0;i<numBuildings;i++){
+ let w,h,x,y;
+ do{
+  w=(50+Math.random()*75); h=(50+Math.random()*75); // вдвічі менші
+  x=Math.random()*(canvas.width-w); y=Math.random()*(canvas.height-h);
+ }while(player.x>x && player.x<x+w && player.y>y && player.y<y+h);
+ walls.push({x,y,w,h});
+}
+}
+
+// =================== Зомбі ===================
+class Zombie{
+ constructor(x,y,type){
+   this.x=x; this.y=y; this.type=type;
+   if(type==="light"){this.size=25; this.hp=20; this.speed=2;}
+   else if(type==="medium"){this.size=35; this.hp=40; this.speed=1.5;}
+   else{this.size=50; this.hp=80; this.speed=0.8;}
+   this.maxHp=this.hp;
+ }
+ draw(){
+   ctx.save();ctx.translate(this.x,this.y);
+   ctx.fillStyle="green"; ctx.fillRect(-this.size/2,-this.size,-this.size/2,this.size);
+   ctx.fillStyle="#fff"; ctx.fillRect(-5,-this.size-10,10,5); // очі
+   ctx.fillStyle="red"; ctx.fillRect(-this.size/2,-this.size-15,(this.hp/this.maxHp)*this.size,4);
+   ctx.restore();
+ }
+ update(){
+   let dx=player.x-this.x; let dy=player.y-this.y; let dist=Math.hypot(dx,dy);
+   if(dist>1){this.x+=(dx/dist)*this.speed; this.y+=(dy/dist)*this.speed;}
+   if(dist<player.size+this.size){player.hp-=0.5;if(player.hp<=0) endGame();}
+ }
+ getCoinValue(){if(this.type==="light") return 3;if(this.type==="medium") return 5;return 10;}
+}
+
+// =================== Хвилі ===================
+function spawnWave(count){
+zombies=[];
+let i=0;
+spawnInterval = setInterval(()=>{
+ if(i>=count){clearInterval(spawnInterval); waveActive=true; return;}
+ let type;
+ if(wave<=5) type="medium";
+ else if(wave<=9) type=Math.random()<0.5?"medium":"light";
+ else type=Math.random()<0.5?"medium":"heavy";
+ let edge=Math.floor(Math.random()*4); // 0-верх,1-право,2-низ,3-ліво
+ let x=0,y=0;
+ if(edge===0){x=Math.random()*canvas.width; y=0;}
+ else if(edge===1){x=canvas.width; y=Math.random()*canvas.height;}
+ else if(edge===2){x=Math.random()*canvas.width; y=canvas.height;}
+ else {x=0; y=Math.random()*canvas.height;}
+ zombies.push(new Zombie(x,y,type));
+ i++;
+},300); // спавн по одному кожні 300мс
+}
+
+// =================== Кулі ===================
+function handleBullets(){
+ bullets.forEach((b,bi)=>{
+   b.x+=b.dx; b.y+=b.dy;
+   if(b.x<0||b.x>canvas.width||b.y<0||b.y>canvas.height){bullets.splice(bi,1);}
+   zombies.forEach((z,zi)=>{
+     let dist=Math.hypot(b.x-z.x,b.y-z.y);
+     if(dist<z.size){ z.hp-=b.damage; bullets.splice(bi,1);
+       if(z.hp<=0){score+=10;coins+=z.getCoinValue(); zombies.splice(zi,1);}
+     }
+   });
+ });
+}
+
+// =================== Рух гравця ===================
+function movePlayer(){
+ let dx=0,dy=0;
+ if(keys["w"]||keys["ArrowUp"]) dy=-player.speed;
+ if(keys["s"]||keys["ArrowDown"]) dy=player.speed;
+ if(keys["a"]||keys["ArrowLeft"]) dx=-player.speed;
+ if(keys["d"]||keys["ArrowRight"]) dx=player.speed;
+ let nextX=player.x+dx, nextY=player.y+dy;
+ if(nextX-player.size>0 && nextX+player.size<canvas.width) player.x=nextX;
+ if(nextY-player.size>0 && nextY+player.size<canvas.height) player.y=nextY;
+ walls.forEach(w=>{if(nextX+player.size>w.x && nextX-player.size<w.x+w.w && nextY+player.size>w.y && nextY-player.size<w.y+w.h){player.x-=dx; player.y-=dy;}});
+}
+
+// =================== UI ===================
+function updateUI(){document.getElementById("stats").innerHTML=
+`${texts[lang].hp}: ${Math.floor(player.hp)}<br>${texts[lang].score}: ${score}<br>${texts[lang].coins}: ${coins}<br>🔫 ${weapons[currentWeapon].name} (${ammo}/${weapons[currentWeapon].mag})${reloading?" ("+texts[lang].reload+")":""}<br>${texts[lang].wave}: ${wave}${paused?" ("+texts[lang].pause+")":""}`;}
+
+// =================== Кінець гри ===================
+function endGame(){
+ gameOver=true;
+ if(score>highScore) localStorage.setItem("highScore",score);
+ localStorage.setItem("coins",coins);
+ localStorage.setItem("ownedWeapons",JSON.stringify(ownedWeapons));
+ localStorage.setItem("currentWeapon",currentWeapon);
+ setTimeout(()=>{ alert(texts[lang].gameover+score); location.reload(); },100);
+}
+
+// =================== Стрілянина ===================
+bullets=[];
+canvas.addEventListener("mousedown",shoot);
+function shoot(e){
+ if(gameOver||reloading||ammo<=0||paused||!waveActive) return;
+ const w=weapons[currentWeapon];
+ if(Date.now()-lastShot<w.fireRate) return;
+ lastShot=Date.now();
+ ammo--;
+ const rect=canvas.getBoundingClientRect();
+ const mx=e.clientX-rect.left;
+ const my=e.clientY-rect.top;
+ const angle=Math.atan2(my-player.y,mx-player.x);
+ if(currentWeapon==="shotgun"){for(let i=-1;i<=1;i++) bullets.push({x:player.x,y:player.y,dx:Math.cos(angle+i*0.15)*w.speed,dy:Math.sin(angle+i*0.15)*w.speed,damage:w.damage});}
+ else bullets.push({x:player.x,y:player.y,dx:Math.cos(angle)*w.speed,dy:Math.sin(angle)*w.speed,damage:w.damage});
+}
+function reload(){if(reloading||ammo===weapons[currentWeapon].mag)return; reloading=true; setTimeout(()=>{ammo=weapons[currentWeapon].mag; reloading=false;},weapons[currentWeapon].reload);}
+
+// =================== Магазин ===================
+function toggleShop(){
+ const shop=document.getElementById("shop");
+ shop.style.display=shop.style.display==="none"?"block":"none";
+ shop.innerHTML="";
+ for(let key in weapons){
+   const w=weapons[key];
+   const owned=ownedWeapons.includes(key);
+   const btn=document.createElement("button");
+   if(owned){btn.innerText=lang==="uk"?`Вибрати ${w.name}`:`Select ${w.name}`; btn.onclick=()=>{currentWeapon=key; ammo=w.mag;};}
+   else{btn.innerText=(lang==="uk"?`Купити ${w.name} (${w.price} 🪙)`:`Buy ${w.name} (${w.price} 🪙)`); btn.onclick=()=>{if(coins>=w.price){coins-=w.price;ownedWeapons.push(key);localStorage.setItem("ownedWeapons",JSON.stringify(ownedWeapons)); toggleShop();}}}
+   shop.appendChild(btn); shop.appendChild(document.createElement("br"));
+ }
+}
+
+// =================== Пауза ===================
+function togglePause(){paused=!paused;}
+
+// =================== Основний цикл ===================
+function loop(){
+ if(!paused && !gameOver){
+   movePlayer();
+   zombies.forEach(z=>z.update());
+   handleBullets();
+   if(zombies.length===0 && waveActive){waveActive=false; wave++; setTimeout(()=>spawnWave(5+wave*2),1500);}
+ }
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ // Будівлі прості
+ walls.forEach(w=>{
+   ctx.fillStyle="#666";
+   ctx.fillRect(w.x,w.y,w.w,w.h);
+   ctx.strokeStyle="#111"; ctx.strokeRect(w.x,w.y,w.w,w.h);
+ });
+ // Гравець
+ ctx.fillStyle="blue"; ctx.beginPath(); ctx.arc(player.x,player.y,player.size,0,Math.PI*2); ctx.fill();
+ // Кулі
+ bullets.forEach(b=>{ ctx.fillStyle="yellow"; ctx.beginPath(); ctx.arc(b.x,b.y,4,0,Math.PI*2); ctx.fill(); });
+ // Зомбі
+ zombies.forEach(z=>z.draw());
+ updateUI();
+ requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
