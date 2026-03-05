@@ -1,230 +1,311 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-<meta charset="UTF-8">
-<title>Zombie Shooter City Pro</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<style>
-    body{margin:0;overflow:hidden;font-family:sans-serif;background:#111;color:white;touch-action:none;}
-    canvas{display:block;background:#1a1a1a;}
-    #ui{position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.8);padding:15px;border-radius:10px;z-index:100;display:none;pointer-events:none;}
-    .ctrl-btn{pointer-events:auto;margin-top:5px;padding:8px;width:100%;background:#444;color:white;border:none;border-radius:5px;}
-    #menu-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:200;}
-    .modal{background:#222;padding:30px;border-radius:15px;text-align:center;border:2px solid #ff4444;max-width:80%;}
-    #mobile-controls{position:absolute;bottom:20px;left:20px;width:100%;height:150px;display:none;z-index:150;pointer-events:none;}
-    .joy{position:absolute;background:rgba(255,255,255,0.2);border-radius:50%;pointer-events:auto;}
-    #stick{width:120px;height:120px;bottom:20px;left:20px;}
-    #action-btns{position:absolute;bottom:20px;right:40px;display:flex;gap:15px;pointer-events:auto;}
-    .round-btn{width:70px;height:70px;background:rgba(255,68,68,0.5);border-radius:50%;display:flex;justify-content:center;align-items:center;font-size:12px;font-weight:bold;}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zombie Shooter City: Pro Edition</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #111; color: white; touch-action: none; }
+        canvas { display: block; background: #1a1a1a; }
+        
+        /* UI Elements */
+        #ui { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 12px; border-radius: 8px; z-index: 100; display: none; border: 1px solid #444; pointer-events: none; }
+        .btn { pointer-events: auto; background: #444; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; margin-top: 5px; font-weight: bold; width: 100%; }
+        
+        /* Menus */
+        #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 200; }
+        .modal { background: #222; padding: 30px; border-radius: 15px; text-align: center; border: 2px solid #ff4444; width: 300px; }
+        
+        /* Mobile Controls */
+        #mobile-ui { position: absolute; bottom: 30px; width: 100%; display: none; justify-content: space-between; padding: 0 40px; box-sizing: border-box; z-index: 150; }
+        .joy-zone { width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; position: relative; border: 2px solid rgba(255,255,255,0.2); }
+        .action-btns { display: flex; flex-direction: column; gap: 15px; }
+        .circle-btn { width: 70px; height: 70px; background: rgba(255,68,68,0.5); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border: 2px solid white; -webkit-user-select: none; }
+    </style>
 </head>
 <body>
 
-<div id="menu-overlay">
+<div id="overlay">
     <div id="lang-step" class="modal">
         <h2>ZOMBIE CITY</h2>
-        <button class="ctrl-btn" onclick="setLang('uk')">Українська</button>
-        <button class="ctrl-btn" onclick="setLang('en')">English</button>
+        <button class="btn" onclick="selectLang('uk')">Українська</button>
+        <button class="btn" onclick="selectLang('en')">English</button>
     </div>
     <div id="device-step" class="modal" style="display:none;">
-        <h2 id="device-title">Оберіть пристрій</h2>
-        <button class="ctrl-btn" onclick="initDevice('pc')">💻 ПК (Клавіатура)</button>
-        <button class="ctrl-btn" onclick="initDevice('mobile')">📱 Телефон (Сенсор)</button>
+        <h2 id="device-title">Пристрій</h2>
+        <button class="btn" onclick="selectDevice('pc')">💻 ПК (Клавіатура)</button>
+        <button class="btn" onclick="selectDevice('mobile')">📱 Телефон (Сенсор)</button>
     </div>
-    <div id="tutorial-step" class="modal" style="display:none;">
-        <h2 id="tut-title">Керування</h2>
-        <p id="tut-text"></p>
-        <button class="ctrl-btn" onclick="start()">ПІШЛИ!</button>
+    <div id="start-step" class="modal" style="display:none;">
+        <h2 id="start-title">Керування</h2>
+        <p id="start-desc" style="font-size: 14px; color: #ccc;"></p>
+        <button class="btn" style="background:#ff4444" onclick="startGame()">START</button>
     </div>
 </div>
 
 <div id="ui">
     <div id="stats"></div>
-    <button class="ctrl-btn" id="shopBtn" onclick="toggleShop()">🛒 Shop</button>
-    <button class="ctrl-btn" id="pauseBtn" onclick="togglePause()">⏸ Pause</button>
+    <button class="btn" id="pauseBtn" onclick="togglePause()">⏸ PAUSE</button>
+    <button class="btn" id="reloadBtn" onclick="manualReload()">🔄 RELOAD</button>
 </div>
 
-<div id="mobile-controls">
-    <div id="stick" class="joy"></div>
-    <div id="action-btns">
-        <div class="round-btn" id="relMob">RELOAD</div>
-        <div class="round-btn" id="fireMob" style="background:rgba(255,215,0,0.5)">FIRE</div>
+<div id="mobile-ui">
+    <div id="joystick" class="joy-zone"></div>
+    <div class="action-btns">
+        <div class="circle-btn" id="fireBtn" style="background:rgba(255,215,0,0.5)">FIRE</div>
+        <div class="circle-btn" id="mobReload">RELOAD</div>
     </div>
 </div>
 
 <canvas id="game"></canvas>
 
 <script>
-let lang = localStorage.getItem('z_lang') || 'uk';
+// --- Глобальні змінні ---
+let lang = localStorage.getItem('zombie_lang');
 let device = '';
+let paused = false, gameOver = false;
+let score = 0, coins = parseInt(localStorage.getItem('zombie_coins')) || 0, wave = 1;
+let player, zombies = [], bullets = [], keys = {};
+let isFiring = false;
+
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let player = { x:0, y:0, size:18, speed:4, hp:100, lastHit:0 };
-let keys = {}, zombies = [], bullets = [], walls = [];
-let score = 0, coins = parseInt(localStorage.getItem('z_coins'))||0, wave = 1;
-let paused = false, gameOver = false, isFiring = false;
-
 const texts = {
-    uk: { pause: "⏸ Пауза", resume: "▶ Продовжити", dev: "Оберіть пристрій", tutPC: "WASD / Стрілочки - рух\nМишка - вогонь\nR - перезарядка", tutMob: "Джойстик зліва - рух\nКнопки справа - вогонь та перезарядка", wave: "Хвиля", hp: "Життя", coins: "Монети" },
-    en: { pause: "⏸ Pause", resume: "▶ Resume", dev: "Select Device", tutPC: "WASD / Arrows - move\nMouse - fire\nR - reload", tutMob: "Joystick left - move\nButtons right - fire and reload", wave: "Wave", hp: "HP", coins: "Coins" }
+    uk: { dev: "Оберіть пристрій", tutPC: "Рух: WASD / Стрілочки\nСтрільба: Мишка\nПерезарядка: R", tutMob: "Ліва частина: Рух\nКнопки справа: Стрільба та R", hp: "Життя", wave: "Хвиля", coins: "Монети", pause: "⏸ Пауза", resume: "▶ Грати" },
+    en: { dev: "Select Device", tutPC: "Move: WASD / Arrows\nFire: Mouse\nReload: R", tutMob: "Left Side: Joystick\nRight Side: Fire & Reload", hp: "HP", wave: "Wave", coins: "Coins", pause: "⏸ Pause", resume: "▶ Resume" }
 };
 
-// === Налаштування меню ===
-function setLang(l) {
-    lang = l;
-    localStorage.setItem('z_lang', l);
+// --- Налаштування Меню ---
+if (lang) {
     document.getElementById('lang-step').style.display = 'none';
     document.getElementById('device-step').style.display = 'block';
-    document.getElementById('device-title').innerText = texts[lang].dev;
+    updateText();
 }
 
-function initDevice(d) {
+function selectLang(l) {
+    lang = l;
+    localStorage.setItem('zombie_lang', l);
+    document.getElementById('lang-step').style.display = 'none';
+    document.getElementById('device-step').style.display = 'block';
+    updateText();
+}
+
+function updateText() {
+    document.getElementById('device-title').innerText = texts[lang].dev;
+    document.getElementById('pauseBtn').innerText = texts[lang].pause;
+}
+
+function selectDevice(d) {
     device = d;
     document.getElementById('device-step').style.display = 'none';
-    document.getElementById('tutorial-step').style.display = 'block';
-    document.getElementById('tut-text').innerText = device === 'pc' ? texts[lang].tutPC : texts[lang].tutMob;
+    document.getElementById('start-step').style.display = 'block';
+    document.getElementById('start-desc').innerText = device === 'pc' ? texts[lang].tutPC : texts[lang].tutMob;
 }
 
-function start() {
-    document.getElementById('menu-overlay').style.display = 'none';
+function startGame() {
+    document.getElementById('overlay').style.display = 'none';
     document.getElementById('ui').style.display = 'block';
-    if(device === 'mobile') document.getElementById('mobile-controls').style.display = 'block';
+    if (device === 'mobile') document.getElementById('mobile-ui').style.display = 'flex';
     
-    player.x = canvas.width/2; player.y = canvas.height/2;
-    document.getElementById('pauseBtn').innerText = texts[lang].pause;
+    initGame();
+    requestAnimationFrame(gameLoop);
+}
+
+function initGame() {
+    player = {
+        x: canvas.width / 2, y: canvas.height / 2, size: 20, 
+        hp: 100, speed: 4, lastHit: 0, 
+        ammo: 12, maxAmmo: 12, reloading: false
+    };
     
-    // Керування клавішами (виправлено)
-    window.addEventListener("keydown", e => { 
+    window.addEventListener("keydown", e => {
         keys[e.code] = true;
-        if(e.code === 'KeyR') reload();
+        if(e.code === 'KeyR') manualReload();
         if(e.code === 'KeyP') togglePause();
     });
     window.addEventListener("keyup", e => keys[e.code] = false);
     
-    // Мобільне керування (спрощений джойстик)
+    canvas.addEventListener("mousedown", () => { if(device === 'pc') isFiring = true; });
+    window.addEventListener("mouseup", () => { isFiring = false; });
+    
     if(device === 'mobile') {
-        const fireBtn = document.getElementById('fireMob');
-        fireBtn.addEventListener('touchstart', () => isFiring = true);
-        fireBtn.addEventListener('touchend', () => isFiring = false);
-        document.getElementById('relMob').addEventListener('touchstart', reload);
+        const fire = document.getElementById('fireBtn');
+        fire.addEventListener('touchstart', (e) => { e.preventDefault(); isFiring = true; });
+        fire.addEventListener('touchend', () => isFiring = false);
+        document.getElementById('mobReload').addEventListener('touchstart', manualReload);
         
-        let stick = document.getElementById('stick');
-        stick.addEventListener('touchmove', (e) => {
+        document.getElementById('joystick').addEventListener('touchmove', (e) => {
+            e.preventDefault();
             let touch = e.touches[0];
-            let rect = stick.getBoundingClientRect();
-            let centerX = rect.left + rect.width/2;
-            let centerY = rect.top + rect.height/2;
-            keys['ArrowUp'] = touch.clientY < centerY - 10;
-            keys['ArrowDown'] = touch.clientY > centerY + 10;
-            keys['ArrowLeft'] = touch.clientX < centerX - 10;
-            keys['ArrowRight'] = touch.clientX > centerX + 10;
+            let rect = e.target.getBoundingClientRect();
+            let cx = rect.left + rect.width/2;
+            let cy = rect.top + rect.height/2;
+            keys['ArrowUp'] = touch.clientY < cy - 10;
+            keys['ArrowDown'] = touch.clientY > cy + 10;
+            keys['ArrowLeft'] = touch.clientX < cx - 10;
+            keys['ArrowRight'] = touch.clientX > cx + 10;
         });
-        stick.addEventListener('touchend', () => { 
-            keys['ArrowUp'] = keys['ArrowDown'] = keys['ArrowLeft'] = keys['ArrowRight'] = false; 
+        document.getElementById('joystick').addEventListener('touchend', () => {
+            keys['ArrowUp'] = keys['ArrowDown'] = keys['ArrowLeft'] = keys['ArrowRight'] = false;
         });
     }
 
     spawnWave();
-    requestAnimationFrame(loop);
 }
 
-// === Клас Зомбі (виправлено пошкодження) ===
+// --- Клас Зомбі ---
 class Zombie {
-    constructor(type) {
-        let side = Math.floor(Math.random()*4);
-        this.x = side%2===0 ? Math.random()*canvas.width : (side===1?canvas.width+50:-50);
-        this.y = side%2!==0 ? Math.random()*canvas.height : (side===0?-50:canvas.height+50);
+    constructor() {
+        let side = Math.floor(Math.random() * 4);
+        this.x = side % 2 === 0 ? Math.random() * canvas.width : (side === 1 ? canvas.width + 50 : -50);
+        this.y = side % 2 !== 0 ? Math.random() * canvas.height : (side === 0 ? -50 : canvas.height + 50);
         
-        const configs = {
-            runner: { hp: 30, speed: 2.5, color: '#f87171', size: 15, damage: 10 },
-            tank: { hp: 200, speed: 0.7, color: '#450a0a', size: 35, damage: 25 },
-            normal: { hp: 60, speed: 1.5, color: '#166534', size: 22, damage: 15 }
-        };
-        Object.assign(this, configs[type]);
+        const types = [
+            { hp: 50, speed: 1.5, color: '#166534', size: 22, dmg: 15, reward: 5 }, // Звичайний
+            { hp: 30, speed: 2.8, color: '#f87171', size: 16, dmg: 10, reward: 10 }, // Швидкий
+            { hp: 200, speed: 0.8, color: '#450a0a', size: 35, dmg: 30, reward: 25 } // Танк
+        ];
+        Object.assign(this, types[Math.floor(Math.random() * (wave > 3 ? 3 : 1))]);
     }
     update() {
         let dx = player.x - this.x, dy = player.y - this.y;
         let dist = Math.hypot(dx, dy);
-        this.x += (dx/dist)*this.speed;
-        this.y += (dy/dist)*this.speed;
+        this.x += (dx / dist) * this.speed;
+        this.y += (dy / dist) * this.speed;
 
-        // Пошкодження ривками (раз на 1 секунду)
-        if(dist < this.size + player.size && Date.now() - player.lastHit > 1000) {
-            player.hp -= this.damage;
+        // Пошкодження раз на 1 секунду
+        if (dist < this.size + player.size && Date.now() - player.lastHit > 1000) {
+            player.hp -= this.dmg;
             player.lastHit = Date.now();
         }
     }
     draw() {
         ctx.fillStyle = this.color;
-        ctx.fillRect(this.x - this.size/2, this.y - this.size/2, this.size, this.size);
+        ctx.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
     }
 }
 
-function loop() {
-    if(paused || gameOver) return;
-    update();
+// --- Основна Логіка ---
+function gameLoop() {
+    if (gameOver) return;
+    if (!paused) {
+        update();
+    }
     draw();
-    requestAnimationFrame(loop);
+    requestAnimationFrame(gameLoop);
 }
 
 function update() {
-    // Рух (ПК + Стрілочки)
-    if(keys['KeyW'] || keys['ArrowUp']) player.y -= player.speed;
-    if(keys['KeyS'] || keys['ArrowDown']) player.y += player.speed;
-    if(keys['KeyA'] || keys['ArrowLeft']) player.x -= player.speed;
-    if(keys['KeyD'] || keys['ArrowRight']) player.x += player.speed;
+    // Рух
+    if (keys['KeyW'] || keys['ArrowUp']) player.y -= player.speed;
+    if (keys['KeyS'] || keys['ArrowDown']) player.y += player.speed;
+    if (keys['KeyA'] || keys['ArrowLeft']) player.x -= player.speed;
+    if (keys['KeyD'] || keys['ArrowRight']) player.x += player.speed;
+
+    // Стрільба
+    if (isFiring && player.ammo > 0 && !player.reloading) {
+        shoot();
+    }
+
+    bullets.forEach((b, i) => {
+        b.x += b.vx; b.y += b.vy;
+        if(b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) bullets.splice(i, 1);
+        
+        zombies.forEach((z, zi) => {
+            if (Math.hypot(b.x - z.x, b.y - z.y) < z.size) {
+                z.hp -= 25;
+                bullets.splice(i, 1);
+                if (z.hp <= 0) {
+                    coins += z.reward;
+                    score += 10;
+                    zombies.splice(zi, 1);
+                }
+            }
+        });
+    });
 
     zombies.forEach(z => z.update());
-    
-    // Авто-вогонь для мобілки
-    if(isFiring && device === 'mobile') autoShoot();
 
-    if(player.hp <= 0) {
-        gameOver = true;
-        alert("GAME OVER! Score: " + score);
-        location.reload(); // Перезавантажить гру, але завдяки localStorage мова збережеться!
+    if (zombies.length === 0) {
+        wave++;
+        spawnWave();
     }
+
+    if (player.hp <= 0) {
+        gameOver = true;
+        localStorage.setItem('zombie_coins', coins);
+        alert(texts[lang].gameover || "Game Over! Score: " + score);
+        location.reload();
+    }
+
     updateUI();
 }
 
-function updateUI() {
-    document.getElementById('stats').innerHTML = `
-        ${texts[lang].hp}: ${player.hp} | ${texts[lang].wave}: ${wave} | ${texts[lang].coins}: ${coins}
-    `;
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Гравець
+    ctx.fillStyle = "#3b82f6";
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Кулі
+    ctx.fillStyle = "yellow";
+    bullets.forEach(b => {
+        ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fill();
+    });
+
+    zombies.forEach(z => z.draw());
+}
+
+function shoot() {
+    static let lastShot = 0;
+    if (Date.now() - lastShot < 200) return;
+    lastShot = Date.now();
+    
+    player.ammo--;
+    // Спрощена стрільба в бік найближчого зомбі для мобілок або за мишкою для ПК
+    let angle = 0;
+    if(device === 'pc') {
+        // Тут потрібні координати мишки, але для спрощення стріляємо вправо або за останнім рухом
+        angle = Math.atan2(0, 1); 
+    }
+    
+    bullets.push({ 
+        x: player.x, y: player.y, 
+        vx: Math.cos(angle) * 10, vy: Math.sin(angle) * 10 
+    });
+}
+
+function manualReload() {
+    if (player.reloading) return;
+    player.reloading = true;
+    setTimeout(() => {
+        player.ammo = player.maxAmmo;
+        player.reloading = false;
+    }, 1500);
 }
 
 function togglePause() {
     paused = !paused;
     document.getElementById('pauseBtn').innerText = paused ? texts[lang].resume : texts[lang].pause;
-    if(!paused) loop();
 }
 
 function spawnWave() {
-    let types = ['normal', 'runner', 'tank'];
-    for(let i=0; i<5+wave*2; i++) {
-        zombies.push(new Zombie(types[Math.floor(Math.random()*types.length)]));
+    for (let i = 0; i < 5 + wave * 2; i++) {
+        zombies.push(new Zombie());
     }
 }
 
-function draw() {
-    ctx.clearRect(0,0,canvas.width, canvas.height);
-    ctx.fillStyle = "#3b82f6";
-    ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.fill();
-    zombies.forEach(z => z.draw());
-}
-
-function reload() { console.log("Reloading..."); }
-function toggleShop() { alert("Магазин скоро..."); }
-function autoShoot() { /* Логіка пострілу сюди */ }
-
-// Запуск автоматичної перевірки мови
-if(localStorage.getItem('z_lang')) {
-    document.getElementById('lang-step').style.display = 'none';
-    document.getElementById('device-step').style.display = 'block';
-    setLang(localStorage.getItem('z_lang'));
+function updateUI() {
+    document.getElementById('stats').innerHTML = `
+        ${texts[lang].hp}: ${player.hp} | ${texts[lang].wave}: ${wave} | ${texts[lang].coins}: ${coins}<br>
+        AMMO: ${player.reloading ? "RELOADING" : player.ammo + "/" + player.maxAmmo}
+    `;
 }
 </script>
 </body>
