@@ -2,246 +2,206 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
-<title>Zombie Shooter City</title>
+<title>Zombie Shooter</title>
 
 <style>
-
-body{
-margin:0;
-overflow:hidden;
-font-family:Segoe UI;
-background:#111;
-color:white;
-}
-
-canvas{
-display:block;
-background:#1a1a1a;
-}
+body{margin:0;overflow:hidden;background:#111;color:white;font-family:Arial;}
+canvas{display:block;background:#1a1a1a;}
 
 #ui{
 position:absolute;
 top:10px;
 left:10px;
-background:rgba(0,0,0,0.8);
-padding:15px;
+background:rgba(0,0,0,0.7);
+padding:12px;
 border-radius:10px;
-border:2px solid #444;
-z-index:100;
 display:none;
 }
 
 button{
-margin:4px;
-padding:8px;
-border:none;
-border-radius:6px;
+padding:6px;
+margin-top:5px;
+width:140px;
 background:#444;
 color:white;
+border:none;
+border-radius:6px;
 cursor:pointer;
 }
 
-button:hover{
-background:#666;
+#reloadBar{
+width:140px;
+height:10px;
+background:#333;
+border-radius:5px;
+margin-top:5px;
+overflow:hidden;
+display:none;
 }
 
-.centerMenu{
+#reloadProgress{
+height:100%;
+width:0%;
+background:lime;
+}
+
+#lang,#platform,#gameOver{
 position:absolute;
 top:50%;
 left:50%;
 transform:translate(-50%,-50%);
 background:#222;
-padding:30px;
-border-radius:12px;
+padding:20px;
+border-radius:10px;
 text-align:center;
-border:2px solid #ff4444;
 }
 
-#mobileControls{
+#platform,#gameOver{display:none;}
+
+#gameOver{border:2px solid red;}
+
+#shop{
 position:absolute;
-bottom:20px;
-left:20px;
-z-index:200;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:#222;
+padding:20px;
+border-radius:10px;
+display:none;
+border:2px solid gold;
+}
+
+#touch{
+position:absolute;
+bottom:30px;
+left:30px;
 display:none;
 }
 
-#mobileControls button{
-width:60px;
-height:60px;
-font-size:20px;
+#joystickBase{
+width:120px;
+height:120px;
+background:rgba(255,255,255,0.1);
+border-radius:50%;
+position:relative;
 }
 
-#pcHelp{
+#joystick{
+width:50px;
+height:50px;
+background:white;
+border-radius:50%;
 position:absolute;
-bottom:20px;
-right:20px;
-background:#000a;
-padding:10px;
-display:none;
+top:35px;
+left:35px;
+touch-action:none;
 }
-
 </style>
 </head>
 
 <body>
 
-<div id="langSelect" class="centerMenu">
-<h2>ZOMBIE SHOOTER CITY</h2>
-<p>Оберіть мову</p>
-
-<button onclick="startGame('uk')">Українська</button>
-<button onclick="startGame('en')">English</button>
+<div id="lang">
+<h2>Zombie Shooter</h2>
+<button onclick="chooseLang('uk')">Українська</button>
+<button onclick="chooseLang('en')">English</button>
 </div>
 
-
-<div id="deviceSelect" class="centerMenu" style="display:none">
-
-<h2>Оберіть пристрій</h2>
-
-<button onclick="chooseDevice('pc')">ПК</button>
-<button onclick="chooseDevice('mobile')">Телефон</button>
-
+<div id="platform">
+<h3>Платформа</h3>
+<button onclick="startGame('pc')">ПК</button>
+<button onclick="startGame('mobile')">Телефон</button>
 </div>
 
+<div id="gameOver">
+<h2>💀 Game Over</h2>
+<p id="finalScore"></p>
+<button onclick="restartGame()">🔄 Restart</button>
+</div>
 
 <div id="ui">
-
 <div id="stats"></div>
 
-<button id="shopBtn"></button>
-<button id="reloadBtn"></button>
-<button id="pauseBtn"></button>
+<button onclick="togglePause()">⏸ Pause</button>
+<button onclick="toggleShop()">🛒 Shop</button>
+<button onclick="reload()">🔄 Reload</button>
+
+<div id="reloadBar">
+<div id="reloadProgress"></div>
+</div>
 
 </div>
 
-
-<div id="mobileControls">
-
-<br>
-<button onmousedown="keys['arrowup']=true" onmouseup="keys['arrowup']=false">↑</button>
-
-<br>
-
-<button onmousedown="keys['arrowleft']=true" onmouseup="keys['arrowleft']=false">←</button>
-
-<button onmousedown="keys['arrowdown']=true" onmouseup="keys['arrowdown']=false">↓</button>
-
-<button onmousedown="keys['arrowright']=true" onmouseup="keys['arrowright']=false">→</button>
-
-<br>
-
-<button onclick="reload()">🔄</button>
-
+<div id="shop">
+<h3>🛒 Weapon Shop</h3>
+<div id="shopItems"></div>
+<button onclick="toggleShop()">Close</button>
 </div>
-
-
-<div id="pcHelp">
-
-WASD / Стрілки — рух  
-<br>
-ЛКМ — стріляти  
-<br>
-R — перезарядка  
-<br>
-ESC — пауза
-
-</div>
-
 
 <canvas id="game"></canvas>
 
+<div id="touch">
+<div id="joystickBase">
+<div id="joystick"></div>
+</div>
+</div>
+
 <script>
-
-
-let lang="uk"
-let device="pc"
-
-const texts={
-uk:{
-shop:"🛒 Магазин",
-pause:"⏸ Пауза",
-resume:"▶ Продовжити",
-reload:"🔄 Перезарядка",
-coins:"Монети",
-score:"Очки",
-hp:"Життя",
-wave:"Хвиля",
-gameover:"Гру закінчено! Очки:"
-},
-
-en:{
-shop:"Shop",
-pause:"Pause",
-resume:"Resume",
-reload:"Reload",
-coins:"Coins",
-score:"Score",
-hp:"HP",
-wave:"Wave",
-gameover:"Game Over! Score:"
-}
-}
-
 
 const canvas=document.getElementById("game")
 const ctx=canvas.getContext("2d")
 
-canvas.width=window.innerWidth
-canvas.height=window.innerHeight
+canvas.width=innerWidth
+canvas.height=innerHeight
 
+let lang="uk"
+let platform="pc"
+let paused=false
+let gameOver=false
 
 let player
 let zombies=[]
 let bullets=[]
-let keys={}
 
 let coins=0
 let score=0
 let wave=1
-let waveActive=false
 
-let paused=false
-let gameOver=false
-
-let ammo=12
-let reloading=false
+let keys={}
 let lastShot=0
 
+let ownedWeapons=["pistol"]
+let currentWeapon="pistol"
 
-function startGame(selectedLang){
+let ammo=12
+let maxAmmo=12
+let reloading=false
 
-lang=selectedLang
-
-localStorage.setItem("zsc_lang",lang)
-
-document.getElementById("langSelect").style.display="none"
-
-document.getElementById("deviceSelect").style.display="block"
-
+const weapons={
+pistol:{damage:20,fireRate:400,speed:10,mag:12,reload:1200,price:0},
+rifle:{damage:15,fireRate:120,speed:14,mag:30,reload:2000,price:150},
+shotgun:{damage:40,fireRate:700,speed:9,mag:6,reload:2500,price:220}
 }
 
+function chooseLang(l){
+lang=l
+document.getElementById("lang").style.display="none"
+document.getElementById("platform").style.display="block"
+}
 
-function chooseDevice(type){
+function startGame(p){
 
-device=type
+platform=p
 
-document.getElementById("deviceSelect").style.display="none"
+document.getElementById("platform").style.display="none"
 document.getElementById("ui").style.display="block"
 
-if(device==="mobile")
-document.getElementById("mobileControls").style.display="block"
-
-if(device==="pc")
-document.getElementById("pcHelp").style.display="block"
-
-initGame()
-
-requestAnimationFrame(loop)
-
+if(platform=="mobile"){
+document.getElementById("touch").style.display="block"
 }
 
-
-function initGame(){
+loadData()
 
 player={
 x:canvas.width/2,
@@ -251,50 +211,57 @@ speed:4,
 hp:100
 }
 
-zombies=[]
-bullets=[]
-
-score=0
-wave=1
-
-startWave()
+spawnWave()
+loop()
 
 }
 
+function restartGame(){
+location.reload()
+}
+
+function saveData(){
+
+localStorage.setItem("coins",coins)
+localStorage.setItem("weapons",JSON.stringify(ownedWeapons))
+localStorage.setItem("currentWeapon",currentWeapon)
+
+}
+
+function loadData(){
+
+coins=parseInt(localStorage.getItem("coins"))||0
+ownedWeapons=JSON.parse(localStorage.getItem("weapons"))||["pistol"]
+currentWeapon=localStorage.getItem("currentWeapon")||"pistol"
+
+maxAmmo=weapons[currentWeapon].mag
+ammo=maxAmmo
+
+}
+
+addEventListener("keydown",e=>keys[e.key]=true)
+addEventListener("keyup",e=>keys[e.key]=false)
+
+canvas.addEventListener("mousedown",shoot)
+
+canvas.addEventListener("touchstart",function(e){
+let t=e.touches[0]
+shoot({clientX:t.clientX,clientY:t.clientY})
+})
 
 class Zombie{
 
-constructor(x,y,type){
+constructor(x,y){
 
 this.x=x
 this.y=y
-this.type=type
-
-const config={
-
-light:{size:20,hp:30,speed:2,color:"#4ade80"},
-
-runner:{size:18,hp:20,speed:3.5,color:"#86efac"},
-
-medium:{size:25,hp:60,speed:1.5,color:"#22c55e"},
-
-toxic:{size:25,hp:50,speed:1.2,color:"#84cc16"},
-
-heavy:{size:35,hp:150,speed:0.8,color:"#166534"},
-
-tank:{size:45,hp:300,speed:0.5,color:"#14532d"}
-
-}
-
-Object.assign(this,config[type])
-
-this.maxHp=this.hp
-
+this.size=20
+this.hp=40+wave*5
+this.speed=1+wave*0.1
+this.damage=6
 this.lastHit=0
-this.hitDelay=800
 
 }
-
 
 update(){
 
@@ -303,16 +270,14 @@ let dy=player.y-this.y
 
 let dist=Math.hypot(dx,dy)
 
-this.x+=(dx/dist)*this.speed
-this.y+=(dy/dist)*this.speed
+this.x+=dx/dist*this.speed
+this.y+=dy/dist*this.speed
 
+if(dist<player.size+this.size){
 
-if(dist<this.size){
+if(Date.now()-this.lastHit>900){
 
-if(Date.now()-this.lastHit>this.hitDelay){
-
-player.hp-=8
-
+player.hp-=this.damage
 this.lastHit=Date.now()
 
 }
@@ -321,83 +286,232 @@ this.lastHit=Date.now()
 
 }
 
-
 draw(){
 
-ctx.fillStyle=this.color
-
-ctx.fillRect(this.x-this.size/2,this.y-this.size/2,this.size,this.size)
-
-}
+ctx.fillStyle="green"
+ctx.fillRect(this.x-10,this.y-10,20,20)
 
 }
 
+}
 
+function spawnWave(){
 
-function startWave(){
-
-waveActive=true
-
-let count=5+wave*2
+let count=Math.min(3+wave,20)
 
 for(let i=0;i<count;i++){
 
-setTimeout(()=>{
-
-let edge=Math.floor(Math.random()*4)
-
 let x,y
 
-if(edge===0){x=Math.random()*canvas.width;y=-50}
-if(edge===1){x=canvas.width+50;y=Math.random()*canvas.height}
-if(edge===2){x=Math.random()*canvas.width;y=canvas.height+50}
-if(edge===3){x=-50;y=Math.random()*canvas.height}
+if(Math.random()<0.5){
 
-let types=["light"]
+x=Math.random()<0.5?-40:canvas.width+40
+y=Math.random()*canvas.height
 
-if(wave>2)types.push("runner")
-if(wave>4)types.push("medium")
-if(wave>6)types.push("toxic")
-if(wave>8)types.push("heavy")
-if(wave>10)types.push("tank")
+}else{
 
-let type=types[Math.floor(Math.random()*types.length)]
+x=Math.random()*canvas.width
+y=Math.random()<0.5?-40:canvas.height+40
 
-zombies.push(new Zombie(x,y,type))
+}
 
-},i*400)
+zombies.push(new Zombie(x,y))
 
 }
 
 }
 
+function shoot(e){
 
-function loop(){
+if(paused||gameOver||reloading)return
+if(ammo<=0)return
 
-if(gameOver)return
+let w=weapons[currentWeapon]
 
-if(!paused)update()
+if(Date.now()-lastShot<w.fireRate)return
 
-draw()
+lastShot=Date.now()
+ammo--
 
-requestAnimationFrame(loop)
+let angle=Math.atan2(e.clientY-player.y,e.clientX-player.x)
+
+bullets.push({
+x:player.x,
+y:player.y,
+dx:Math.cos(angle)*w.speed,
+dy:Math.sin(angle)*w.speed,
+damage:w.damage
+})
 
 }
 
+function reload(){
+
+if(reloading||ammo==maxAmmo)return
+
+reloading=true
+
+let bar=document.getElementById("reloadBar")
+let prog=document.getElementById("reloadProgress")
+
+bar.style.display="block"
+
+let start=Date.now()
+let time=weapons[currentWeapon].reload
+
+let interval=setInterval(()=>{
+
+let p=(Date.now()-start)/time*100
+prog.style.width=p+"%"
+
+if(p>=100){
+
+clearInterval(interval)
+
+ammo=maxAmmo
+reloading=false
+prog.style.width="0%"
+bar.style.display="none"
+
+}
+
+},16)
+
+}
+
+function togglePause(){
+paused=!paused
+}
+
+function toggleShop(){
+
+let shop=document.getElementById("shop")
+
+if(shop.style.display=="block"){
+shop.style.display="none"
+paused=false
+}else{
+renderShop()
+shop.style.display="block"
+paused=true
+}
+
+}
+
+function renderShop(){
+
+let div=document.getElementById("shopItems")
+div.innerHTML=""
+
+for(let w in weapons){
+
+let weapon=weapons[w]
+let owned=ownedWeapons.includes(w)
+
+let btn=document.createElement("button")
+
+if(!owned){
+
+btn.innerText=w+" "+weapon.price
+
+btn.onclick=()=>{
+
+if(coins>=weapon.price){
+
+coins-=weapon.price
+ownedWeapons.push(w)
+
+saveData()
+renderShop()
+
+}
+
+}
+
+}else{
+
+btn.innerText=w+(currentWeapon==w?" ✔":" equip")
+
+btn.onclick=()=>{
+
+currentWeapon=w
+maxAmmo=weapon.mag
+ammo=maxAmmo
+
+saveData()
+renderShop()
+
+}
+
+}
+
+div.appendChild(btn)
+
+}
+
+}
+
+let joy={dx:0,dy:0}
+
+const joyBase=document.getElementById("joystickBase")
+const joyHandle=document.getElementById("joystick")
+
+joyBase.addEventListener("touchmove",e=>{
+
+let rect=joyBase.getBoundingClientRect()
+
+let x=e.touches[0].clientX-rect.left-60
+let y=e.touches[0].clientY-rect.top-60
+
+let dist=Math.hypot(x,y)
+let max=50
+
+if(dist>max){
+x=x/dist*max
+y=y/dist*max
+}
+
+joyHandle.style.transform=`translate(${x}px,${y}px)`
+
+joy.dx=x/50
+joy.dy=y/50
+
+})
+
+joyBase.addEventListener("touchend",()=>{
+
+joyHandle.style.transform="translate(0px,0px)"
+joy.dx=0
+joy.dy=0
+
+})
 
 function update(){
+
+if(paused||gameOver)return
 
 let mx=0
 let my=0
 
-if(keys['w']||keys['arrowup'])my-=player.speed
-if(keys['s']||keys['arrowdown'])my+=player.speed
-if(keys['a']||keys['arrowleft'])mx-=player.speed
-if(keys['d']||keys['arrowright'])mx+=player.speed
+if(platform=="pc"){
+
+if(keys["w"]||keys["ArrowUp"])my-=player.speed
+if(keys["s"]||keys["ArrowDown"])my+=player.speed
+if(keys["a"]||keys["ArrowLeft"])mx-=player.speed
+if(keys["d"]||keys["ArrowRight"])mx+=player.speed
+
+}else{
+
+mx=joy.dx*player.speed*2
+my=joy.dy*player.speed*2
+
+}
 
 player.x+=mx
 player.y+=my
 
+player.x=Math.max(player.size,Math.min(canvas.width-player.size,player.x))
+player.y=Math.max(player.size,Math.min(canvas.height-player.size,player.y))
 
 bullets.forEach((b,i)=>{
 
@@ -406,19 +520,20 @@ b.y+=b.dy
 
 zombies.forEach((z,zi)=>{
 
-if(Math.hypot(b.x-z.x,b.y-z.y)<z.size){
+if(Math.hypot(b.x-z.x,b.y-z.y)<20){
 
-z.hp-=20
-
+z.hp-=b.damage
 bullets.splice(i,1)
 
 if(z.hp<=0){
 
-score+=10
-coins+=3
-
 zombies.splice(zi,1)
 
+coins+=5
+score+=10
+
+saveData()
+
 }
 
 }
@@ -426,150 +541,66 @@ zombies.splice(zi,1)
 })
 
 })
-
 
 zombies.forEach(z=>z.update())
 
-
-if(zombies.length===0&&waveActive){
-
-waveActive=false
-
+if(zombies.length==0){
 wave++
+spawnWave()
+}
 
-setTimeout(startWave,2000)
+if(player.hp<=0){
+
+gameOver=true
+
+document.getElementById("gameOver").style.display="block"
+document.getElementById("finalScore").innerText="🎯 Score: "+score
 
 }
 
-
-if(player.hp<=0)endGame()
-
-updateUI()
-
 }
-
 
 function draw(){
 
 ctx.clearRect(0,0,canvas.width,canvas.height)
 
-ctx.fillStyle="#3b82f6"
-
+ctx.fillStyle="blue"
 ctx.beginPath()
 ctx.arc(player.x,player.y,player.size,0,Math.PI*2)
 ctx.fill()
 
-
-ctx.fillStyle="yellow"
-
 bullets.forEach(b=>{
-
+ctx.fillStyle="yellow"
 ctx.beginPath()
 ctx.arc(b.x,b.y,4,0,Math.PI*2)
 ctx.fill()
-
 })
-
 
 zombies.forEach(z=>z.draw())
 
 }
 
-
-canvas.addEventListener("mousedown",e=>{
-
-if(paused)return
-
-if(Date.now()-lastShot<300)return
-
-lastShot=Date.now()
-
-bullets.push({
-
-x:player.x,
-y:player.y,
-
-dx:(e.clientX-player.x)/20,
-
-dy:(e.clientY-player.y)/20
-
-})
-
-})
-
-
-function reload(){
-
-if(reloading)return
-
-reloading=true
-
-setTimeout(()=>{
-
-ammo=12
-reloading=false
-
-},1200)
-
-}
-
-
-function togglePause(){
-
-paused=!paused
-
-}
-
-
 function updateUI(){
 
 document.getElementById("stats").innerHTML=
-
-texts[lang].hp+": "+Math.ceil(player.hp)+"<br>"+
-
-texts[lang].score+": "+score+"<br>"+
-
-texts[lang].coins+": "+coins+"<br>"+
-
-texts[lang].wave+": "+wave
-
-
-document.getElementById("shopBtn").innerText=texts[lang].shop
-document.getElementById("reloadBtn").innerText=texts[lang].reload
-document.getElementById("pauseBtn").innerText=paused?texts[lang].resume:texts[lang].pause
+`❤️ HP: ${player.hp}
+<br>🎯 Score: ${score}
+<br>🪙 Coins: ${coins}
+<br>🌊 Wave: ${wave}
+<br>🔫 Ammo: ${ammo}/${maxAmmo}`
 
 }
 
+function loop(){
 
-function endGame(){
+update()
+draw()
+updateUI()
 
-gameOver=true
-
-alert(texts[lang].gameover+" "+score)
-
-initGame()
+requestAnimationFrame(loop)
 
 }
-
-
-window.addEventListener("keydown",e=>{
-
-keys[e.key.toLowerCase()]=true
-
-if(e.key==="Escape")togglePause()
-
-if(e.key==="r")reload()
-
-})
-
-
-window.addEventListener("keyup",e=>{
-
-keys[e.key.toLowerCase()]=false
-
-})
 
 </script>
-
 </body>
 </html>
